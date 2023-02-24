@@ -37,10 +37,14 @@ class ProductManager {
     }
 
     async cargar() {
-        let file, prod = null
+        let start,file, prod = null
         loadSuccess
             ? (
-                file = await fs.readFile(this.path, 'utf-8'),
+                start = await fs.writeFile(this.path, '[]',(err)=>{
+                    if(err) throw err;
+                    console.log('El archivo se guardo satifactoriamente')
+                }),
+                file = await fs.readFile(this.path,'utf-8'),
                 prod = JSON.parse(file),
                 prod.forEach(element => {
                     counter++
@@ -91,25 +95,10 @@ class ProductManager {
         await this.cargar()
         let json, i = null;
         const modificar = (i, campo, data) => {
-            switch (campo) {
-                case 'title':
-                    this.products[i].title = data
-                    break
-                case 'description':
-                    this.products[i].description = data
-                    break
-                case 'price':
-                    this.products[i].price = data
-                    break
-                case 'thumbnail':
-                    this.products[i].thumbnail = data
-                    break
-                case 'code':
-                    this.products[i].code = data
-                    break
-                case 'stock':
-                    this.products[i].stock = data
-                    break
+            for(const property in this.products[i]){
+                if(property === campo){
+                    this.products[i][property] = data
+                }
             }
         }
         const idFinded = this.products.some((prod) => prod.id === id)
@@ -149,9 +138,11 @@ class ProductManager {
  */
 const manager = new ProductManager("archivos de entrada/prueba.txt")
 //Añadiendo elementos tipo Product al productManager
+await manager.getProducts()
 await manager.addProduct(new Product("producto1", "description1", 11, "thumbnail1", 11, 1))
 await manager.addProduct(new Product("producto2", "description2", 21, "thumbnail2", 21, 2))
 await manager.addProduct(new Product("producto3", "description3", 31, "thumbnail3", 31, 3))
+await manager.getProducts()
 // EL metodo updateProduct(id del producto, campo a modificar en String, nuevo valor String/Integer/... dependiendo el caso)
 await manager.updateProduct(2, 'description', 'Descripcion modificada 2')
 await manager.updateProduct(3, 'stock', 56)
