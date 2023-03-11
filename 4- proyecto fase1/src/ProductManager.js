@@ -1,22 +1,25 @@
 import fs from 'fs/promises'
-import { randomUUID } from 'crypto'
 
 //Con esta variable valido que el archivo no se cargue con cada llamada al metodo que lo carga
 let loadSuccess = true
 
 //Objeto Product
-class Product {
-    constructor(title, description, price, thumbnail, code, stock) {
-        const map = new Map([[title], [description], [price], [thumbnail], [code], [stock]])
-        if (map.has("") || map.has(0)) {
-            throw ("Todos los campos son obligatorios, creación de producto fallida");
+export class Product {
+    constructor({ id, title, description, code, price, status, stock, category, thumbnails }) {
+        const map = new Map([[id], [title], [description], [code], [price], [status], [stock], [category]])
+        if (map.has("") || map.has(0) || map.has(undefined)) {
         } else {
+            this.id = id
             this.title = title
             this.description = description
-            this.price = price
-            this.thumbnail = thumbnail
             this.code = code
+            this.price = price
+            this.status = status
             this.stock = stock
+            this.category = category
+            if (thumbnails) {
+                this.thumbnails = thumbnails
+            }
         }
     }
 }
@@ -33,10 +36,11 @@ export class ProductManager {
     }
 
     async #cargar() {
+        let file, prod = null
         try {
             if (loadSuccess) {
-                const file = await fs.readFile(this.#path, 'utf-8')
-                const prod = await JSON.parse(file)
+                file = await fs.readFile(this.#path, 'utf-8')
+                prod = await JSON.parse(file)
                 prod.forEach(element => {
                     this.#products.push(element)
                 })
@@ -44,7 +48,7 @@ export class ProductManager {
                 return
             } else return
         } catch (error) {
-            throw ('No se pudo cargar el archivo')
+            throw new Error("No se logro cargar el archivo")
         }
     }
 
@@ -65,65 +69,65 @@ export class ProductManager {
 
     async addProduct(product) {
         await this.#cargar()
-        let json, id = null;
+        let json = null;
         if (Object.entries(product).length === 0) {
-            throw ('No se añadio el producto, verificar propiedades\n\n');
+            return null
         } else {
             const codeRepeated = this.#products.some((prod) => prod.code === product.code)
             if (codeRepeated) {
-                throw ('El codigo ' + product.code + ' esta repetido, no se añadio el producto\n\n')
+                throw new Error("No se puede crear un producto con el mismo codigo que otro")
             } else {
-                id = randomUUID()
-                product.id = id
                 this.#products.push(product)
                 json = JSON.stringify(this.#products, null, 4)
                 await fs.writeFile(this.#path, json)
+                return product
             }
         }
     }
 
     async getProductById(id) {
         await this.#cargar()
-        try {
-            const product = await this.#products.find((prod)=>prod.id === parseInt(id))
+        const idFinded = this.#products.find((prod) => prod.id === id)
+        if(idFinded) {
+            const product = this.#products.find((prod) => prod.id === id)
             return product
-        } catch (error) {
+        } else {
             return null
         }
 
     }
 
-    async updateProduct(id, campo, data) {
+    async updateProduct(id, newProduct) {
         await this.#cargar()
-        let json, i = null;
-        const modificar = (i, campo, data) => {
-            for (const property in this.#products[i]) {
-                if (property === campo) {
-                    this.#products[i][property] = data
-                }
-            }
-        }
         const idFinded = this.#products.some((prod) => prod.id === id)
         if (idFinded) {
-            i = this.#products.findIndex((prod) => prod.id === id)
-            modificar(i, campo, data)
-            json = JSON.stringify(this.#products, null, 4)
+            const i = this.#products.findIndex((prod) => prod.id === id)
+            const product = this.#products.find((prod) => prod.id === id)
+            for (const property in product) {
+                for (const prop in newProduct) {
+                    if (property === prop && property != 'id') {
+                        this.#products[i][property] = newProduct[prop]
+                    }
+                }
+            }
+            const json = JSON.stringify(this.#products, null, 4)
             await fs.writeFile(this.#path, json)
-        } else throw ('--- Not found ---\n\n')
+            return this.#products[i]
+        } else return null
 
     }
 
+
     async deleteProduct(id) {
         await this.#cargar()
-        let json, i = null
         const idFinded = this.#products.some((prod) => prod.id === id)
         if (idFinded) {
-            i = this.#products.findIndex((prod) => prod.id === id),
-                this.#products.splice(i, 1)
-            json = JSON.stringify(this.#products, null, 4)
+            const i = this.#products.findIndex((prod) => prod.id === id)
+            this.#products.splice(i, 1)
+            const json = JSON.stringify(this.#products, null, 4)
             await fs.writeFile(this.#path, json)
-            return
-        } else throw ('--Not found--')
+            return this.#products
+        } else return null
     }
 
 }
